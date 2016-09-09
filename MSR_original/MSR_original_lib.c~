@@ -85,15 +85,6 @@ int* buildGaussKern(int winSize, float sigma)   /* [1]删除incline[2]修改int 
     free(kern);
     return ikern;
 }
-/**
- * @The Gaussian blur function of processing the gray image,and the function is simulating the downward function of Convolution
- * @param pixels the input gray image
- * @param pixelsout the output blured gray image
- * @param width  the width of the gray image
- * @param height  the height of the gray image
- * @param sigma  the param of the gaussian function
- * @return pixelsout the output blured gray image
- */
 double* GaussBlur1D(double*  pixels,double*  pixelsout, unsigned int  width, unsigned int  height, float sigma)  /*删掉unsigned  int channels,因为是单通道没有用*/
 {                                                                                                                             
  /*[1]修改返回值类型void为double类型,函数最后,return pixelsout,这个空间需要开辟和释放*/ 
