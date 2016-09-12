@@ -44,7 +44,7 @@ extern "C" {
 #endif
 
 int* buildGaussKern(int winSize, float sigma);
-
+double * IMG_GaussBlur(double* src, double * dst, int width, int height, float sigma, int chan); /*(1)unsigned char*修改为double(2)unsigned char*&修改为double*/
 double* GaussBlur1D(double*  pixels,double*  pixelsout, unsigned int  width, unsigned int  height, float sigma);
 double *convolution(double *input, double scale, double *output, size_t nx, size_t ny);
 
