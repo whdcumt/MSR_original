@@ -26,7 +26,7 @@ BIN	= MSR_original
 default	: $(BIN)
 
 # C optimization flags
-COPT	= -O0  -funroll-loops
+COPT	= -O3  -funroll-loops
 
 CXXOPT= $(COPT)
 
@@ -43,11 +43,11 @@ LDFLAGS	= -lfftw3 -lpng -lm
 
 # partial compilation of C source code
 %.o: %.c %.h
-	$(CC) -g -c -o $@  $< $(CFLAGS) -I/opt/local/include/ -I/usr/local/include/ 
+	$(CC) -g -c -o0 $@  $< $(CFLAGS) -I/opt/local/include/ -I/usr/local/include/ 
     
 # partial compilation of C++ source code
 %.o: %.cpp %.h
-	$(CXX) -g -c -o $@  $< $(CXXFLAGS) -I/opt/local/include/ -I/usr/local/include/   
+	$(CXX) -g -c -o0 $@  $< $(CXXFLAGS) -I/opt/local/include/ -I/usr/local/include/   
     
 # link all the object code
 
