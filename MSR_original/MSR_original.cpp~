@@ -57,7 +57,6 @@
 #include "MSR_original_lib.h"
 #include "parser.h"
 #include "auxiliary_lib.h"
-#include "time.h"    
 
 #define min(a,b) ((a) < (b) ? (a):(b))
 
@@ -66,10 +65,7 @@ using namespace std;
 int main(int argc,  char **argv)
 {
 
-    clock_t start, finish;      
-    double duration; 
-    clock_t startcp, finishcp;      
-    double durationcp;
+
     int nscales, channels;
     double w, scale[3];
     unsigned char *data_in, *data_outC, *data_outG;
@@ -173,9 +169,8 @@ int main(int argc,  char **argv)
     /* weight of each scale*/
 
     w=(double)(1./nscales);
-    long i = 10000000;      
 
-    start = clock();      
+    
     /* MSR on RGB channels*/
 
     MSRetinex( Rout,  R,  scale, nscales, w, nx,ny);
@@ -208,11 +203,8 @@ int main(int argc,  char **argv)
 
     rgb_output(Rout, Gout, Bout, data_outC, image_size);
     io_png_write_u8(pMSR_channels.value, data_outC, nx,ny, nc);
-    finish = clock();      
-    duration = (double)(finish - start) / CLOCKS_PER_SEC;      
-    printf( "%f seconds\n", duration ); 
     
-    startcp = clock();      
+
     /* MSR on the gray*/
 
     MSRetinex(grayout, gray, scale, nscales, w, nx, ny);
@@ -221,10 +213,6 @@ int main(int argc,  char **argv)
                                  image_size);
     rgb_output(Rout, Gout, Bout, data_outG, image_size);
     io_png_write_u8(pMSR_gray.value, data_outG, nx,ny, nc);
-    finishcp = clock();      
-    durationcp = (double)(finishcp - startcp) / CLOCKS_PER_SEC;      
-    printf( "%f seconds\n", durationcp ); 
-     
     
 
     /*Free the memory*/

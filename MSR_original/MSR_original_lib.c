@@ -49,12 +49,61 @@
 #include <math.h>
 #include <fftw3.h>
 #include "MSR_original_lib.h"
+#include "time.h"
 
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 #define PI2  6.283185307179586  /* 2*pi*/
+double *  BoxBlur(double* Src, double *Dest, int Width, int Height, int Radius)
+{
+    int X, Y, Z, MoveIn, MovOut  ;
+    double Sum, InvertAmount = 1.0 / (( 2 * Radius + 1) * (2 * Radius + 1));
+    double *Temp = (double *)malloc(Height * Width * sizeof(double));
+    double *LinePS, *LinePD;
+
+    /* BoxBlur是一种行列可以分离计算的过程，因此先进行行方向的BoxBlur，*/
+    /*  得到中间结果，然后再对中间结果进行列方向的BoxBlur，则可以得到最终结果。*/
+
+    for (Y = 0; Y < Height; Y++)            /* 对每行的数据进行BoxBlur，注意这个过程是行方向无关的，即每行的结算结果不会相互影响，因此和适合于并行化*/
+    {
+        LinePS = Src + Y * Width;           /* 定位到第Y行第一个像素的内存地址*/
+        LinePD = Temp + Y * Width;
+        Sum = (Radius + 1) * LinePS[0];     /* 计算行第一个像素左右两边 Radius范围内的累加值，超过边缘的用边缘值代替, 注意这里的加1是为了后续的编码方便，请仔细体味这个+1，很有相反的 */
+        for (Z = 0; Z < Radius; Z++)        /* 按理说这里的循环内部是要进行判断Z是否大于等于宽度，否则会出现访问非法内存的错误，但是这种情况只在Radius>Width时出现，这个是没有意义的。*/
+            Sum += LinePS[Z];               /* 计算第一个点右侧的像素累加值*/
+        for (X = 0; X < Width;X++)          
+        {   
+            MovOut = X - Radius - 1;                        /* 从左侧移出去的那个像素的坐标*/
+            if (MovOut < 0) MovOut = 0;                     /* 用边缘值代替*/
+            MoveIn = X + Radius;                            /*从右侧移入的那个像素的坐标*/
+            if(MoveIn >= Width) MoveIn = Width - 1;         /*用边缘值代替*/
+            Sum = Sum - LinePS[MovOut] + LinePS[MoveIn];    /*  新的累加值 = 旧的累加值 - 移出的值 + 移入的值*/
+            LinePD[X] = Sum;                                /* 保存到临时内存中*/
+        }
+    }
+
+    for (X = 0; X < Width; X++)             /* 接下来对临时数据进行列方向的BoxBlur，得到最终结果，编码方式其实一样的，只是列更改为行*/
+    {
+        LinePS = Temp + X;                  /* 定位到第X列的第一个像素的内存地址*/
+        LinePD = Dest + X;
+        Sum = (Radius + 1) * LinePS[0];     /* 以下是同样的道理，无需注释了*/
+        for (Z = 0; Z < Radius; Z++)
+            Sum += LinePS[Z * Width];
+        for (Y = 0; Y < Height; Y++)
+        {   
+            MovOut = Y - Radius - 1;
+            if (MovOut < 0) MovOut = 0;
+            MoveIn = Y + Radius;
+            if(MoveIn >= Height) MoveIn = Height - 1;
+            Sum = Sum - LinePS[MovOut * Width] + LinePS[MoveIn * Width];            /* 注意这里的*Width了*/
+            LinePD[Y * Width] = Sum * InvertAmount;                 /* 求平均值，浮点的乘法要比除法快多了，这样为什么不用乘法呢。*/
+        }
+    }
+    free(Temp);         /*  注意释放内存*/
+    return Dest;
+}
 /**
  * @Recurisive   Gaussian Blur
  * @param src    the original image
@@ -415,29 +464,62 @@ double *MSRetinex(double *out, double *input, double *scale, int nscales,
 {
     int i, image_size, n;
     double *pas;
+    double *pas15;
+    double *pas80;
+    double *pas250;
+    clock_t start, finish;      
+    double duration;   
 
     image_size=(int)nx* (int)ny;
 
     pas=(double*) malloc(image_size*sizeof(double));
-
+    pas15=(double*) malloc(image_size*sizeof(double));
+    pas80=(double*) malloc(image_size*sizeof(double));
+    pas250=(double*) malloc(image_size*sizeof(double));
     /* initialization of the output*/
     
     for(i=0; i<image_size; i++)
         out[i]=0.;
 
     /* Compute Retinex output*/
-
     for(n=0; n<nscales; n++)
-    {
+    {   
+       
+     if(scale[0]==15)
+       {
+         BoxBlur(input, pas,nx,ny,9);
+         BoxBlur(pas, pas15,nx,ny,9);
+         BoxBlur(pas15, pas,nx,ny,11);
+       }
+         if(scale[1]==80)
+       {
+         BoxBlur(input, pas,nx,ny,53);
+         BoxBlur(pas, pas80,nx,ny,53);
+         BoxBlur(pas80, pas,nx,ny,55);
+       }
+         if(scale[2]==250)
+       {
+         BoxBlur(input, pas,nx,ny,167);
+         BoxBlur(pas, pas250,nx,ny,167);
+         BoxBlur(pas250, pas,nx,ny,167);
+       }
+       start = clock();       
        /*  GaussBlur1D(input,pas,nx,ny,scale[n]/3);*/ 
        /* convolution(input,scale[n],pas,nx,ny);*/
-        IMG_GaussBlur(input,pas,nx,ny,scale[n]/3,1);
-        printf("尺度：%f\n",scale[n] );
+       /*IMG_GaussBlur(input,pas,nx,ny,scale[n]/3,1);*/
+       finish = clock();      
+       duration = (double)(finish - start) / CLOCKS_PER_SEC;
+       printf( "当前尺度%f\n",scale[n]); 
+       printf( "模糊部分耗时%f seconds\n", duration );  
+       /* printf("尺度：%f\n",scale[n] );*/
         for(i=0; i<(int)image_size; i++)
             out[i]+=w*(log(input[i])-log(pas[i]));
     }
 
     free(pas);
+    free(pas15);
+    free(pas80);
+    free(pas250);
 
     return out;
 }
